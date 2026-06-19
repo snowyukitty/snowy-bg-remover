@@ -15,8 +15,9 @@ and safe interior hole filling.
 
 ```bash
 python -m pip install -e .
-cutout models download --model isnet-anime
-cutout models download --model toonout
+python -m pip install -e ".[quality]"
+python -m snowy_bg_remover.cli models download --model isnet-anime
+python -m snowy_bg_remover.cli models download --model toonout
 cutout --input raw.png --output transparent.png
 cutout --input raw.png --output transparent.png --quality --device auto
 cutout --input raw.png --check
@@ -36,6 +37,8 @@ python -m snowy_bg_remover.cli --input raw.png --check
 ```
 
 ## Installation
+
+For a complete new-machine walkthrough, use [docs/SETUP.md](docs/SETUP.md).
 
 ```bash
 python -m pip install -e .
@@ -81,6 +84,12 @@ stages as the fast path. This is slower and heavier than the ONNX path, but it
 is materially better for anime hair, ears, linework, and AI-generated
 pale-on-pale images.
 
+For already-transparent clean masters, omit `--quality` and `--force-model`.
+Meaningful input alpha is then treated as the source of truth, so the command can
+validate, trim, pad, and square the image without re-segmenting it. Use
+`--quality` on transparent input only when the alpha is damaged or you
+intentionally want to re-run the model.
+
 Useful quality knobs:
 
 ```bash
@@ -118,6 +127,20 @@ python -m snowy_bg_remover.cli \
   --emit-size 32
 ```
 
+For 128px review output:
+
+```bash
+python -m snowy_bg_remover.cli \
+  --input raw.png \
+  --output emote-128.png \
+  --quality \
+  --device auto \
+  --trim \
+  --pad 8% \
+  --square \
+  --emit-size 128
+```
+
 For batch processing:
 
 ```bash
@@ -130,6 +153,24 @@ python -m snowy_bg_remover.cli \
   --jsonl \
   --fail-fast
 ```
+
+## Source Image Background Guidance
+
+The tool uses learned semantic segmentation/matting, not chroma keying. A pure
+blue or green background is not automatically better than white or black, and it
+can create saturated color spill in semi-transparent hair, ears, soft linework,
+or pale clothing.
+
+For generated emote sources, prefer a simple non-semantic background:
+
+```text
+plain solid matte medium-gray background, no scenery, no texture, no pattern,
+no checkerboard, no glow, no cast shadow
+```
+
+Medium gray is usually the safest generation backdrop because it avoids
+high-contrast white/black edge ambiguity while producing less visible color
+contamination than saturated chroma-key colors.
 
 ## Implemented contract
 
@@ -204,4 +245,4 @@ The next quality step is quantitative benchmarking and a stricter policy mode:
 1. Build a real emote-wall corpus and synthetic-composite benchmark set.
 2. Add a `--drop-effects` policy for floating non-character decorations.
 3. Add InSPyReNet / transparent-background as an optional backend.
-4. Calibrate confidence thresholds against false-accept rate at 32px.
+4. Calibrate confidence thresholds against false-accept rate at 128px and 32px.

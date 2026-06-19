@@ -13,18 +13,26 @@ As of this checkpoint, the repository has a working local MVP:
 - `cutout` single, batch, glob, and `--check` modes with stdout JSON
 - `cutout models list/status/download` provisioning commands
 - default `isnet-anime` ONNX adapter, pinned by SHA256
+- registered `birefnet-general-lite` ONNX comparison adapter, pinned by SHA256
+- quality `toonout` PyTorch BiRefNet adapter, pinned by SHA256 and paired with a
+  pinned BiRefNet runtime revision
 - offline-first cache under the platform cache directory
 - soft-alpha-native topology with largest-core hysteresis reconstruction
 - strict confidence failure for no subject, excessive coverage, high uncertainty,
   and multiple high-confidence cores
 - bounded interior hole repair and detached-blob removal
-- edge RGB decontamination by nearest opaque foreground color bleed
+- edge RGB decontamination by PyMatting foreground estimation with nearest opaque
+  foreground color bleed fallback
+- bounded closed-form alpha refinement for the quality path
+- bbox thresholding to keep faint residual haze from expanding trim/framing boxes
 - atomic PNG output and explain artifacts via `--explain-dir`
-- 32px/small-output path using linear-light premultiplied RGBA resize
+- 128px/32px/small-output path using linear-light premultiplied RGBA resize
+- setup and operations guide for provisioning another machine:
+  [`docs/SETUP.md`](SETUP.md)
 
 Still pending for production hardening: corpus benchmarks, threshold calibration,
-second model adapter comparison (BiRefNet / InSPyReNet), richer foreground
-estimation, package signing/notarization, and MCP/GUI adapters.
+optional InSPyReNet comparison, stricter drop-effects policy, package
+signing/notarization, and MCP/GUI adapters.
 
 ## 1. Problem Statement
 

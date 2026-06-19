@@ -139,7 +139,7 @@ def prime_runtime_cache(spec: ModelSpec) -> None:
     if not spec.runtime_repo:
         return
     try:
-        from transformers import AutoConfig
+        from transformers import AutoConfig, AutoModelForImageSegmentation
     except Exception as exc:
         raise ModelManagerError(
             f"{spec.model_id} requires the quality runtime dependencies; "
@@ -147,11 +147,15 @@ def prime_runtime_cache(spec: ModelSpec) -> None:
         ) from exc
 
     try:
-        AutoConfig.from_pretrained(
+        config = AutoConfig.from_pretrained(
             spec.runtime_repo,
             revision=spec.runtime_revision,
             trust_remote_code=True,
             local_files_only=False,
+        )
+        AutoModelForImageSegmentation.from_config(
+            config,
+            trust_remote_code=True,
         )
     except Exception as exc:
         raise ModelManagerError(
