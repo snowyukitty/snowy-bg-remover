@@ -57,6 +57,22 @@ def normalize_alpha(alpha: np.ndarray) -> np.ndarray:
     return np.clip(arr, 0.0, 1.0)
 
 
+def contract_alpha(alpha: np.ndarray, pixels: int, *, threshold: float = 0.35) -> np.ndarray:
+    """Contract the matte inward by ``pixels`` and re-soften the boundary.
+
+    White hair fading into a low-contrast backdrop leaves a thin opaque pale halo
+    just outside the true silhouette. Eroding the support by a couple of pixels and
+    capping the original alpha to that softened, contracted mask removes the halo
+    while keeping a soft (non-binary) edge. Pixels interior to the contraction are
+    untouched, so only the outermost ring is affected.
+    """
+    if pixels <= 0:
+        return alpha
+    inner = ndimage.binary_erosion(alpha >= threshold, iterations=int(pixels))
+    soft = ndimage.gaussian_filter(inner.astype(np.float32), sigma=max(0.6, pixels * 0.6))
+    return np.minimum(alpha, soft).astype(np.float32)
+
+
 def bbox_from_mask(mask: np.ndarray) -> tuple[int, int, int, int] | None:
     ys, xs = np.nonzero(mask)
     if len(xs) == 0:

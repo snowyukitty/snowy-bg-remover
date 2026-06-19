@@ -196,6 +196,10 @@ contamination than saturated chroma-key colors.
   background-colored pixels, so interior neutral features (eyes, pearls, silver)
   are never touched. No-op unless a single dominant uniform border background is
   detected; auto-aborts if it would erase the whole subject.
+- optional `--edge-contract N` matte contraction: erodes the silhouette inward by
+  N px and re-softens it, removing the thin opaque pale halo left when pale hair
+  fades into a low-contrast backdrop. Works on the model path and on already-cut
+  RGBA input, so existing cutouts can be cleaned without re-segmenting.
 - bounded closed-form alpha refinement for `--quality`, driven by a generated
   trimap around the model boundary and protected foreground core
 - `--bbox-threshold` to keep faint outer haze from expanding trim/framing boxes

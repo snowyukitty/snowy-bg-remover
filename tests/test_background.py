@@ -45,3 +45,18 @@ def test_suppress_aborts_when_subject_matches_background():
     out, metrics = suppress_background_color(alpha, rgb, bg)
     assert metrics["backgroundSuppressed"] == 0.0
     assert np.array_equal(out, alpha)
+
+
+def test_contract_alpha_shrinks_outer_ring_only():
+    import numpy as np
+    from snowy_bg_remover.masks import contract_alpha
+
+    alpha = np.zeros((40, 40), dtype=np.float32)
+    alpha[10:30, 10:30] = 1.0
+    out = contract_alpha(alpha, 3)
+    # Outer ring (halo analog) is reduced.
+    assert out[10, 20] < 0.5
+    # Deep interior is essentially untouched.
+    assert out[20, 20] > 0.99
+    # No-op when pixels <= 0.
+    assert np.array_equal(contract_alpha(alpha, 0), alpha)

@@ -18,7 +18,13 @@ from .decontaminate import estimate_foreground_rgb
 from .explain import save_explain_artifacts
 from .framing import frame_image
 from .image_io import load_image
-from .masks import TopologyResult, analyze_soft_alpha, bbox_from_mask, normalize_alpha
+from .masks import (
+    TopologyResult,
+    analyze_soft_alpha,
+    bbox_from_mask,
+    contract_alpha,
+    normalize_alpha,
+)
 from .refine import refine_alpha_closed_form
 
 
@@ -316,6 +322,9 @@ def process_image(
         )
         _maybe_write_explain(options, source_alpha, topology, result)
         return result
+
+    if options.edge_contract > 0:
+        topology.alpha = contract_alpha(topology.alpha, options.edge_contract)
 
     final_image = apply_alpha(loaded.image, topology.alpha)
     if options.decontaminate_edges:
