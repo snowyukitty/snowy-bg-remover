@@ -25,6 +25,12 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import ndimage
 
+# Enclosed-pocket key: how close (RGB euclidean) a pixel must be to the background
+# color, and how near the background's chroma it must be, to be treated as trapped
+# backdrop regardless of connectivity. Tighter than the border-flood tolerance.
+TIGHT_TOLERANCE = 30.0
+CHROMA_MARGIN = 12.0
+
 
 @dataclass(frozen=True)
 class BackgroundEstimate:
@@ -91,18 +97,29 @@ def suppress_background_color(
     border = np.zeros((height, width), dtype=bool)
     border[0, :] = border[-1, :] = border[:, 0] = border[:, -1] = True
 
-    # Background = bg-colored pixels reachable from the border through other
-    # bg-colored pixels. Interior neutral features cannot be reached because the
-    # surrounding non-bg-colored subject blocks propagation.
+    # (1) Border-connected background: bg-colored pixels reachable from the border
+    # through other bg-colored pixels. Catches the outer backdrop plus open hair
+    # gaps; the loose tolerance also feathers the anti-aliased hair boundary.
     reachable = ndimage.binary_propagation(bg_colored & border, mask=bg_colored)
-    if not reachable.any():
-        return alpha, {"backgroundSuppressed": 0.0}
-
-    # Feathered kill: full at the background color, fading to 0 at the tolerance
-    # edge, so the cut blends into the anti-aliased hair boundary. ``bg_like`` is
-    # 0 wherever ``dist >= tolerance``, so non-background pixels are never touched.
     bg_like = np.clip(1.0 - dist / max(background.tolerance, 1e-3), 0.0, 1.0)
     kill = np.where(reachable, bg_like, 0.0).astype(np.float32)
+
+    # (2) Enclosed background pockets: flat backdrop trapped between hair strands
+    # that the border flood cannot reach. The generated backdrop is a tight,
+    # perfectly NEUTRAL gray, so we key it globally by (a) tight color match to the
+    # background and (b) near-background chroma. The character's own neutral-ish
+    # parts (lavender eyes, pink-gray hair shading, pearls) are tinted or a
+    # different value, so they are spared. No connectivity needed, so it removes
+    # fully-enclosed pockets.
+    bg_chroma = float(background.color.max() - background.color.min())
+    chroma = rgb.max(axis=2) - rgb.min(axis=2)
+    tight = np.clip(1.0 - dist / max(TIGHT_TOLERANCE, 1e-3), 0.0, 1.0)
+    neutralness = np.clip(1.0 - (chroma - bg_chroma) / max(CHROMA_MARGIN, 1e-3), 0.0, 1.0)
+    kill = np.maximum(kill, (tight * neutralness).astype(np.float32))
+
+    if not (kill > 0.01).any():
+        return alpha, {"backgroundSuppressed": 0.0}
+
     new_alpha = (alpha * (1.0 - kill)).astype(np.float32)
 
     # Safety: if the subject is the same flat color as the background, the border

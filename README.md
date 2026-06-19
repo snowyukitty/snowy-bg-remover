@@ -196,6 +196,10 @@ contamination than saturated chroma-key colors.
   background-colored pixels, so interior neutral features (eyes, pearls, silver)
   are never touched. No-op unless a single dominant uniform border background is
   detected; auto-aborts if it would erase the whole subject.
+- enclosed-pocket removal inside background suppression: the flat generated
+  backdrop trapped between hair strands (not reachable from the border) is
+  keyed globally by tight color match + near-background chroma, so neutral
+  hair-gap backdrop is removed while tinted features (eyes, pearls) are kept.
 - optional `--edge-contract N` matte contraction: erodes the silhouette inward by
   N px and re-softens it, removing the thin opaque pale halo left when pale hair
   fades into a low-contrast backdrop. Works on the model path and on already-cut
