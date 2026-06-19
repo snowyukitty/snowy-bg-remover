@@ -269,6 +269,60 @@ def fill_interior_holes(
     return filled, fill_count, fill_area
 
 
+def suppress_detached_seed_artifacts(
+    *,
+    seed_all: np.ndarray,
+    main_seed: np.ndarray,
+    support: np.ndarray,
+    keep: np.ndarray,
+    max_area_ratio: float = 0.008,
+    min_distance_ratio: float = 0.025,
+    clearance_ratio: float = 0.018,
+) -> tuple[np.ndarray, int, int]:
+    if ndimage is None:
+        return keep, 0, 0
+    secondary = seed_all & ~main_seed
+    labels, count = ndimage.label(secondary, structure=STRUCTURE_8)
+    if count == 0:
+        return keep, 0, 0
+
+    h, w = seed_all.shape
+    diagonal = float((h * h + w * w) ** 0.5)
+    max_area = max(1, int(seed_all.size * max_area_ratio))
+    min_distance = max(2.0, diagonal * min_distance_ratio)
+    clearance = max(2, int(round(diagonal * clearance_ratio)))
+
+    distance_to_main = ndimage.distance_transform_edt(~main_seed)
+    protected_zone = ndimage.binary_dilation(
+        main_seed,
+        structure=STRUCTURE_8,
+        iterations=clearance,
+    )
+    remove = np.zeros(seed_all.shape, dtype=bool)
+    suppressed_count = 0
+
+    for label in range(1, count + 1):
+        component = labels == label
+        area = int(np.count_nonzero(component))
+        if area > max_area:
+            continue
+        if float(distance_to_main[component].min()) < min_distance:
+            continue
+        local_support = support & ~protected_zone
+        artifact_region = reconstruct_from_seed(component, local_support)
+        artifact_region &= keep
+        artifact_region &= distance_to_main >= clearance
+        if not np.any(artifact_region):
+            continue
+        remove |= artifact_region
+        suppressed_count += 1
+
+    if suppressed_count == 0:
+        return keep, 0, 0
+    suppressed_area = int(np.count_nonzero(remove & keep))
+    return keep & ~remove, suppressed_count, suppressed_area
+
+
 def analyze_soft_alpha(
     alpha: np.ndarray,
     high_threshold: float = 0.85,
@@ -285,6 +339,12 @@ def analyze_soft_alpha(
     )
     support = alpha_f >= low_threshold
     keep = reconstruct_from_seed(seed, support)
+    keep, _, _ = suppress_detached_seed_artifacts(
+        seed_all=seed_all,
+        main_seed=seed,
+        support=support,
+        keep=keep,
+    )
 
     removed_mask = support & ~keep
     removed_count, removed_area = _count_components(removed_mask)

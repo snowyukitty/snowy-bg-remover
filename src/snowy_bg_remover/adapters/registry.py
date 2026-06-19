@@ -20,11 +20,24 @@ def create_adapter(
     if resolved in {"none", "input-alpha"}:
         return None
     spec = get_model_spec(resolved)
-    return OnnxSegmentationAdapter(
-        spec.model_id,
-        cache_dir=cache_dir,
-        allow_download=allow_download,
-        offline=offline,
-        device=device,
-        threads=threads,
-    )
+    if spec.backend == "onnx":
+        return OnnxSegmentationAdapter(
+            spec.model_id,
+            cache_dir=cache_dir,
+            allow_download=allow_download,
+            offline=offline,
+            device=device,
+            threads=threads,
+        )
+    if spec.backend == "torch-birefnet":
+        from .torch_birefnet import TorchBiRefNetAdapter
+
+        return TorchBiRefNetAdapter(
+            spec.model_id,
+            cache_dir=cache_dir,
+            allow_download=allow_download,
+            offline=offline,
+            device=device,
+            threads=threads,
+        )
+    raise ValueError(f"unsupported model backend '{spec.backend}' for {spec.model_id}")

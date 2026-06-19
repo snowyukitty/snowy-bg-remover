@@ -5,8 +5,10 @@ import json
 import numpy as np
 from PIL import Image
 
+from snowy_bg_remover.adapters.registry import create_adapter
 from snowy_bg_remover.adapters.base import MaskResult
-from snowy_bg_remover.cli import main
+from snowy_bg_remover.adapters.torch_birefnet import TorchBiRefNetAdapter
+from snowy_bg_remover.cli import QUALITY_MODEL, apply_quality_defaults, main
 from snowy_bg_remover.contracts import EXIT_MODEL_MISSING, EXIT_SUCCESS, CutoutOptions
 from snowy_bg_remover.engine import process_image
 
@@ -229,6 +231,26 @@ def test_cli_models_list_outputs_json(capsys) -> None:
     assert exit_code == EXIT_SUCCESS
     assert payload["ok"] is True
     assert payload["models"][0]["model"] == "isnet-anime"
+
+
+def test_cli_quality_defaults_select_quality_model_and_force_model() -> None:
+    class Args:
+        quality = True
+        model = "auto"
+        force_model = False
+
+    args = Args()
+
+    apply_quality_defaults(args)  # type: ignore[arg-type]
+
+    assert args.model == QUALITY_MODEL
+    assert args.force_model is True
+
+
+def test_registry_dispatches_toonout_to_torch_adapter(tmp_path) -> None:
+    adapter = create_adapter("toonout", cache_dir=tmp_path, device="cpu")
+
+    assert isinstance(adapter, TorchBiRefNetAdapter)
 
 
 def test_cli_models_status_missing_returns_model_exit(tmp_path, capsys) -> None:

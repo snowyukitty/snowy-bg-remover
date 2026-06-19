@@ -46,3 +46,15 @@ def test_analyze_soft_alpha_repairs_small_interior_alpha_hole() -> None:
 
     assert result.hole_fill_count == 1
     assert result.alpha[3, 3] == np.float32(1.0)
+
+
+def test_analyze_soft_alpha_suppresses_distant_secondary_seed_artifact() -> None:
+    alpha = np.zeros((80, 80), dtype=np.float32)
+    alpha[20:55, 20:55] = 1.0
+    alpha[62:66, 62:66] = 1.0
+    alpha[55:62, 55:62] = 0.08
+
+    result = analyze_soft_alpha(alpha, high_threshold=0.85, low_threshold=0.05)
+
+    assert result.alpha[30, 30] == np.float32(1.0)
+    assert result.alpha[63, 63] == np.float32(0.0)

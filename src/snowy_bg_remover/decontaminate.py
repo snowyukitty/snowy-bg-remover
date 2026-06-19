@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
+from .alpha import linear_to_srgb, srgb_to_linear
 from .masks import normalize_alpha
 
 
@@ -81,3 +82,58 @@ def bleed_edge_rgb_from_opaque(
     arr[target, :3] = np.clip(out_rgb[target] + 0.5, 0, 255).astype(np.uint8)
     arr[alpha_f <= 0.0, :3] = 0
     return Image.fromarray(arr, mode="RGBA")
+
+
+def estimate_foreground_rgb(
+    image: Image.Image,
+    alpha: np.ndarray,
+    *,
+    opaque_threshold: float = 0.98,
+    fallback_radius: int = 24,
+) -> Image.Image:
+    rgba = image.convert("RGBA")
+    arr = np.asarray(rgba).copy()
+    alpha_f = normalize_alpha(alpha)
+    if alpha_f.shape != arr.shape[:2]:
+        raise ValueError("alpha shape does not match image size")
+
+    target = (alpha_f > 0.0) & (alpha_f < opaque_threshold)
+    if not np.any(target):
+        arr[alpha_f <= 0.0, :3] = 0
+        return Image.fromarray(arr, mode="RGBA")
+
+    try:
+        from pymatting import estimate_foreground_ml
+    except Exception:
+        return bleed_edge_rgb_from_opaque(
+            rgba,
+            alpha_f,
+            opaque_threshold=opaque_threshold,
+            max_radius=fallback_radius,
+        )
+
+    try:
+        rgb_srgb = arr[:, :, :3].astype(np.float32) / 255.0
+        rgb_linear = srgb_to_linear(rgb_srgb)
+        foreground_linear = estimate_foreground_ml(rgb_linear, alpha_f)
+        foreground_linear = np.nan_to_num(
+            foreground_linear,
+            nan=0.0,
+            posinf=1.0,
+            neginf=0.0,
+        )
+        foreground_srgb = linear_to_srgb(np.clip(foreground_linear, 0.0, 1.0))
+        arr[target, :3] = np.clip(
+            foreground_srgb[target] * 255.0 + 0.5,
+            0,
+            255,
+        ).astype(np.uint8)
+        arr[alpha_f <= 0.0, :3] = 0
+        return Image.fromarray(arr, mode="RGBA")
+    except Exception:
+        return bleed_edge_rgb_from_opaque(
+            rgba,
+            alpha_f,
+            opaque_threshold=opaque_threshold,
+            max_radius=fallback_radius,
+        )

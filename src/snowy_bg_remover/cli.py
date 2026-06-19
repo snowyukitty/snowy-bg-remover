@@ -26,6 +26,7 @@ from .model_specs import MODEL_SPECS, resolve_model_id
 
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff"}
+QUALITY_MODEL = "toonout"
 
 
 class CutoutArgumentParser(argparse.ArgumentParser):
@@ -54,6 +55,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--profile", default="emote")
     parser.add_argument("--model", default="auto")
+    parser.add_argument(
+        "--quality",
+        action="store_true",
+        help=(
+            "Use the higher-quality cutout path: ToonOut when --model is auto, "
+            "and re-run the model even if input alpha exists."
+        ),
+    )
     parser.add_argument("--high-threshold", type=float, default=0.85)
     parser.add_argument("--low-threshold", type=float, default=0.05)
     parser.add_argument("--min-subject-coverage", type=float, default=0.01)
@@ -62,7 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-model", action="store_true")
     parser.add_argument("--allow-download", action="store_true")
     parser.add_argument(
-        "--device", choices=["cpu", "auto", "coreml", "cuda"], default="cpu"
+        "--device", choices=["cpu", "auto", "coreml", "cuda", "mps"], default="cpu"
     )
     parser.add_argument("--threads", type=positive_int)
     parser.add_argument("--model-cache")
@@ -134,6 +143,9 @@ def run_models(argv: Sequence[str]) -> int:
                         "filename": spec.filename,
                         "license": spec.license,
                         "source": spec.source,
+                        "backend": spec.backend,
+                        "runtimeRepo": spec.runtime_repo,
+                        "runtimeRevision": spec.runtime_revision,
                     }
                     for spec in MODEL_SPECS.values()
                 ],
@@ -262,6 +274,14 @@ def make_options(
         square=args.square,
         emit_size=args.emit_size,
     )
+
+
+def apply_quality_defaults(args: argparse.Namespace) -> None:
+    if not getattr(args, "quality", False):
+        return
+    if str(args.model).strip().lower() in {"auto", "emote"}:
+        args.model = QUALITY_MODEL
+    args.force_model = True
 
 
 def validate_common(args: argparse.Namespace) -> str | None:
@@ -393,6 +413,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if unknown:
         return usage_failure(f"unknown arguments: {' '.join(unknown)}")
+
+    apply_quality_defaults(args)
 
     common_error = validate_common(args)
     if common_error:

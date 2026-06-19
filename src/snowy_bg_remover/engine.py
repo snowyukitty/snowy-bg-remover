@@ -11,7 +11,7 @@ from .adapters.registry import create_adapter
 from .alpha import apply_alpha, resize_rgba_linear_premultiplied
 from .atomic_write import atomic_save_png
 from .contracts import CutoutOptions, CutoutResult
-from .decontaminate import bleed_edge_rgb_from_opaque
+from .decontaminate import estimate_foreground_rgb
 from .explain import save_explain_artifacts
 from .framing import frame_image
 from .image_io import load_image
@@ -280,10 +280,10 @@ def process_image(
 
     final_image = apply_alpha(loaded.image, topology.alpha)
     if options.decontaminate_edges:
-        final_image = bleed_edge_rgb_from_opaque(
+        final_image = estimate_foreground_rgb(
             final_image,
             topology.alpha,
-            max_radius=options.decontaminate_radius,
+            fallback_radius=options.decontaminate_radius,
         )
     final_image = frame_image(
         final_image,

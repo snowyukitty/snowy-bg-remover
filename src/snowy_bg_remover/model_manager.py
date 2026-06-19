@@ -135,6 +135,30 @@ def download_model(spec: ModelSpec, cache_dir: Path | None = None) -> Path:
         raise
 
 
+def prime_runtime_cache(spec: ModelSpec) -> None:
+    if not spec.runtime_repo:
+        return
+    try:
+        from transformers import AutoConfig
+    except Exception as exc:
+        raise ModelManagerError(
+            f"{spec.model_id} requires the quality runtime dependencies; "
+            "install snowy-bg-remover with the quality extra"
+        ) from exc
+
+    try:
+        AutoConfig.from_pretrained(
+            spec.runtime_repo,
+            revision=spec.runtime_revision,
+            trust_remote_code=True,
+            local_files_only=False,
+        )
+    except Exception as exc:
+        raise ModelManagerError(
+            f"failed to prepare runtime code for {spec.model_id}: {exc}"
+        ) from exc
+
+
 def ensure_model(
     model_id: str,
     *,
@@ -160,7 +184,9 @@ def ensure_model(
     with model_lock(lock_path):
         if verify_model_file(path, spec):
             return path
-        return download_model(spec, cache_dir)
+        path = download_model(spec, cache_dir)
+        prime_runtime_cache(spec)
+        return path
 
 
 def model_status(model_id: str, cache_dir: Path | None = None) -> dict:
@@ -180,6 +206,9 @@ def model_status(model_id: str, cache_dir: Path | None = None) -> dict:
         "actualHash": actual_hash,
         "license": spec.license,
         "source": spec.source,
+        "backend": spec.backend,
+        "runtimeRepo": spec.runtime_repo,
+        "runtimeRevision": spec.runtime_revision,
     }
 
 
@@ -204,4 +233,5 @@ def download_by_id(
         allow_download=True,
         offline=False,
     )
+    prime_runtime_cache(spec)
     return model_status(spec.model_id, cache_dir)
