@@ -65,9 +65,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--high-threshold", type=float, default=0.85)
     parser.add_argument("--low-threshold", type=float, default=0.05)
+    parser.add_argument("--bbox-threshold", type=float, default=0.12)
     parser.add_argument("--min-subject-coverage", type=float, default=0.01)
     parser.add_argument("--max-subject-coverage", type=float, default=0.98)
     parser.add_argument("--max-hole-area-ratio", type=float, default=0.02)
+    parser.add_argument("--alpha-refine", action="store_true")
+    parser.add_argument("--no-alpha-refine", action="store_true")
+    parser.add_argument("--alpha-refine-size", type=positive_int, default=640)
     parser.add_argument("--force-model", action="store_true")
     parser.add_argument("--allow-download", action="store_true")
     parser.add_argument(
@@ -258,9 +262,12 @@ def make_options(
         model=args.model,
         high_threshold=args.high_threshold,
         low_threshold=args.low_threshold,
+        bbox_threshold=args.bbox_threshold,
         min_subject_coverage=args.min_subject_coverage,
         max_subject_coverage=args.max_subject_coverage,
         max_hole_area_ratio=args.max_hole_area_ratio,
+        alpha_refine=args.alpha_refine and not args.no_alpha_refine,
+        alpha_refine_size=args.alpha_refine_size,
         force_model=args.force_model,
         allow_download=args.allow_download,
         device=args.device,
@@ -282,6 +289,8 @@ def apply_quality_defaults(args: argparse.Namespace) -> None:
     if str(args.model).strip().lower() in {"auto", "emote"}:
         args.model = QUALITY_MODEL
     args.force_model = True
+    if not getattr(args, "no_alpha_refine", False):
+        args.alpha_refine = True
 
 
 def validate_common(args: argparse.Namespace) -> str | None:
@@ -291,6 +300,8 @@ def validate_common(args: argparse.Namespace) -> str | None:
         return "--high-threshold must be between 0 and 1"
     if args.low_threshold >= args.high_threshold:
         return "--low-threshold must be lower than --high-threshold"
+    if not 0.0 <= args.bbox_threshold <= 1.0:
+        return "--bbox-threshold must be between 0 and 1"
     if args.min_subject_coverage < 0 or args.max_subject_coverage > 1:
         return "subject coverage thresholds must be within [0, 1]"
     if args.min_subject_coverage >= args.max_subject_coverage:

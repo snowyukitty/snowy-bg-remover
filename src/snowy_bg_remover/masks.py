@@ -327,6 +327,7 @@ def analyze_soft_alpha(
     alpha: np.ndarray,
     high_threshold: float = 0.85,
     low_threshold: float = 0.05,
+    bbox_threshold: float = 0.12,
     max_hole_area_ratio: float = 0.02,
 ) -> TopologyResult:
     alpha_f = normalize_alpha(alpha)
@@ -360,7 +361,7 @@ def analyze_soft_alpha(
     final_alpha = alpha_f * keep.astype(np.float32)
     if hole_count > 0:
         final_alpha = np.where(filled_holes, 1.0, final_alpha)
-    bbox = bbox_from_mask(keep)
+    bbox = bbox_from_mask(final_alpha >= max(low_threshold, bbox_threshold))
     subject_coverage = float(np.count_nonzero(final_alpha > low_threshold) / alpha_f.size)
     seed_coverage = float(np.count_nonzero(seed) / alpha_f.size)
     support_coverage = float(np.count_nonzero(support) / alpha_f.size)

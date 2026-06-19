@@ -15,7 +15,8 @@ from .decontaminate import estimate_foreground_rgb
 from .explain import save_explain_artifacts
 from .framing import frame_image
 from .image_io import load_image
-from .masks import TopologyResult, analyze_soft_alpha
+from .masks import TopologyResult, analyze_soft_alpha, bbox_from_mask
+from .refine import refine_alpha_closed_form
 
 
 def _elapsed_ms(started_at: float) -> int:
@@ -178,6 +179,7 @@ def process_image(
             source_alpha,
             high_threshold=options.high_threshold,
             low_threshold=options.low_threshold,
+            bbox_threshold=options.bbox_threshold,
             max_hole_area_ratio=options.max_hole_area_ratio,
         )
     except Exception as exc:
@@ -196,6 +198,23 @@ def process_image(
     metrics = _metrics(topology)
     metrics.update(raw_metrics)
     flags = _artifact_flags(topology, loaded.alpha is not None)
+
+    if options.alpha_refine and topology.bbox is not None:
+        refined = refine_alpha_closed_form(
+            loaded.image,
+            topology.alpha,
+            max_size=options.alpha_refine_size,
+        )
+        topology.alpha = refined.alpha
+        topology.bbox = bbox_from_mask(
+            topology.alpha >= max(options.low_threshold, options.bbox_threshold)
+        )
+        topology.subject_coverage = float(
+            (topology.alpha > options.low_threshold).sum() / max(topology.alpha.size, 1)
+        )
+        metrics.update(refined.metrics)
+        if refined.metrics.get("alphaRefineApplied"):
+            flags.append("alpha_refined")
 
     if topology.bbox is None or topology.seed_coverage <= 0:
         result = CutoutResult(

@@ -58,3 +58,18 @@ def test_analyze_soft_alpha_suppresses_distant_secondary_seed_artifact() -> None
 
     assert result.alpha[30, 30] == np.float32(1.0)
     assert result.alpha[63, 63] == np.float32(0.0)
+
+
+def test_analyze_soft_alpha_uses_stronger_bbox_threshold_for_faint_haze() -> None:
+    alpha = np.zeros((12, 12), dtype=np.float32)
+    alpha[:, :] = 0.06
+    alpha[4:8, 4:8] = 1.0
+
+    result = analyze_soft_alpha(
+        alpha,
+        high_threshold=0.85,
+        low_threshold=0.05,
+        bbox_threshold=0.12,
+    )
+
+    assert result.bbox == (4, 4, 4, 4)

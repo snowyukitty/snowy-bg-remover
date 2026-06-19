@@ -41,9 +41,12 @@ class CutoutOptions:
     model: str = "auto"
     high_threshold: float = 0.85
     low_threshold: float = 0.05
+    bbox_threshold: float = 0.12
     min_subject_coverage: float = 0.01
     max_subject_coverage: float = 0.98
     max_hole_area_ratio: float = 0.02
+    alpha_refine: bool = False
+    alpha_refine_size: int = 640
     force_model: bool = False
     allow_download: bool = False
     device: str = "cpu"

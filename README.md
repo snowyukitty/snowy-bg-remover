@@ -75,10 +75,36 @@ python -m snowy_bg_remover.cli \
 ```
 
 `--quality` currently selects `toonout`, forces model inference even when the
-input already has alpha, and then runs the same topology, foreground estimation,
-edge decontamination, and framing stages as the fast path. This is slower and
-heavier than the ONNX path, but it is materially better for anime hair, ears,
-linework, and AI-generated pale-on-pale images.
+input already has alpha, enables bounded closed-form alpha refinement, and then
+runs the same topology, foreground estimation, edge decontamination, and framing
+stages as the fast path. This is slower and heavier than the ONNX path, but it
+is materially better for anime hair, ears, linework, and AI-generated
+pale-on-pale images.
+
+Useful quality knobs:
+
+```bash
+# Refine the trimap boundary at a larger working resolution.
+python -m snowy_bg_remover.cli \
+  --input raw.png \
+  --output cutout.png \
+  --quality \
+  --alpha-refine-size 768
+
+# Disable alpha refinement for diagnosis or maximum reproducibility.
+python -m snowy_bg_remover.cli \
+  --input raw.png \
+  --output cutout.png \
+  --quality \
+  --no-alpha-refine
+
+# Ignore very faint residual alpha when computing the trim/framing bbox.
+python -m snowy_bg_remover.cli \
+  --input raw.png \
+  --output cutout.png \
+  --quality \
+  --bbox-threshold 0.16
+```
 
 For a 32px derived emote:
 
@@ -122,6 +148,9 @@ python -m snowy_bg_remover.cli \
 - largest high-confidence core selection with multi-core confidence rejection
 - edge RGB decontamination via PyMatting foreground estimation, with nearest
   opaque foreground color bleed fallback
+- bounded closed-form alpha refinement for `--quality`, driven by a generated
+  trimap around the model boundary and protected foreground core
+- `--bbox-threshold` to keep faint outer haze from expanding trim/framing boxes
 - optional `--explain-dir` artifacts: source alpha, final alpha, keep mask,
   protected core, and result JSON
 - optional `--trim`, `--pad`, `--square`, and `--emit-size`
@@ -140,6 +169,11 @@ The tool intentionally keeps semantic foreground effects and held props when the
 model treats them as foreground. This is better for emote expressiveness, but a
 future `--drop-effects` mode can be added if the publish policy should remove
 floating expression marks such as sparkles or emphasis strokes.
+
+InSPyReNet / `transparent-background` was evaluated as a candidate quality
+backend. It can produce finer natural-image edges, but on the current emote
+samples it also removes or weakens semantic expression effects and held elements,
+so it is not the default. It remains a good future optional model backend.
 
 Key upstream projects used as references:
 
@@ -169,5 +203,5 @@ The next quality step is quantitative benchmarking and a stricter policy mode:
 
 1. Build a real emote-wall corpus and synthetic-composite benchmark set.
 2. Add a `--drop-effects` policy for floating non-character decorations.
-3. Add InSPyReNet / transparent-background as a soft-edge comparison point.
+3. Add InSPyReNet / transparent-background as an optional backend.
 4. Calibrate confidence thresholds against false-accept rate at 32px.

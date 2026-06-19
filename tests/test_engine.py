@@ -245,6 +245,7 @@ def test_cli_quality_defaults_select_quality_model_and_force_model() -> None:
 
     assert args.model == QUALITY_MODEL
     assert args.force_model is True
+    assert args.alpha_refine is True
 
 
 def test_registry_dispatches_toonout_to_torch_adapter(tmp_path) -> None:
