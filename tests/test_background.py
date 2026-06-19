@@ -4,17 +4,17 @@ from snowy_bg_remover.background import estimate_background, suppress_background
 
 
 def _gray_scene():
-    # Flat neutral-gray background with a non-gray subject block. Inside the subject
-    # there are two interior spots: a fully-enclosed pocket of the exact neutral
-    # background color (a hair-gap-backdrop analog, which SHOULD be removed) and a
-    # tinted spot (a lavender eye/pearl analog, which SHOULD be preserved).
-    rgb = np.full((40, 40, 3), 128, dtype=np.float32)
-    rgb[8:32, 8:32] = (230, 90, 90)  # subject (clearly non-gray)
-    rgb[8:20, 18:22] = 128  # gray channel open to the top border (connected backdrop)
-    rgb[24:28, 16:20] = 128  # enclosed neutral-gray pocket (trapped backdrop)
-    rgb[24:28, 24:28] = (150, 110, 185)  # enclosed TINTED feature (eye/pearl analog)
-    alpha = np.zeros((40, 40), dtype=np.float32)
-    alpha[8:32, 8:32] = 1.0  # model kept the whole block opaque, pockets included
+    # Flat neutral-gray background with a non-gray subject block. Inside the subject:
+    # a gray channel open to the border (connected backdrop, removed), a fully
+    # enclosed neutral-gray pocket at background luminance (trapped backdrop,
+    # removed), and an enclosed tinted spot (lavender eye/pearl analog, preserved).
+    rgb = np.full((80, 80, 3), 128, dtype=np.float32)
+    rgb[16:64, 16:64] = (230, 90, 90)  # subject (clearly non-gray)
+    rgb[16:40, 36:44] = 128  # gray channel open to the top border (connected)
+    rgb[44:60, 24:40] = 128  # enclosed neutral-gray pocket at bg luminance
+    rgb[44:60, 46:62] = (150, 110, 185)  # enclosed TINTED feature (eye/pearl analog)
+    alpha = np.zeros((80, 80), dtype=np.float32)
+    alpha[16:64, 16:64] = 1.0  # model kept the whole block opaque, pockets included
     return rgb, alpha
 
 
@@ -32,14 +32,14 @@ def test_suppress_removes_backdrop_keeps_tinted_feature():
     assert metrics["backgroundSuppressed"] == 1.0
     # Outer background removed.
     assert out[0, 0] == 0.0
-    # The border-connected gray gap is removed.
-    assert out[9, 20] < 0.5
+    # The border-connected gray channel is removed.
+    assert out[20, 40] < 0.5
     # The enclosed neutral-gray pocket (trapped backdrop) is removed.
-    assert out[26, 18] < 0.5
+    assert out[52, 32] < 0.5
     # The enclosed TINTED feature (eye/pearl analog) is preserved.
-    assert out[26, 26] > 0.9
+    assert out[52, 54] > 0.9
     # Real (non-gray) subject pixels are untouched.
-    assert out[16, 12] == 1.0
+    assert out[52, 20] == 1.0
 
 
 def test_suppress_aborts_when_subject_matches_background():

@@ -189,17 +189,19 @@ contamination than saturated chroma-key colors.
 - largest high-confidence core selection with multi-core confidence rejection
 - edge RGB decontamination via PyMatting foreground estimation, with nearest
   opaque foreground color bleed fallback
-- uniform-background color suppression (`--no-bg-suppress` to disable): on the
-  model path, removes flat backdrop pixels the matte leaves trapped in concave
-  hair/ear gaps. Safe by construction — only reduces alpha for pixels that are
-  both background-colored and reachable from the image border through other
-  background-colored pixels, so interior neutral features (eyes, pearls, silver)
-  are never touched. No-op unless a single dominant uniform border background is
-  detected; auto-aborts if it would erase the whole subject.
-- enclosed-pocket removal inside background suppression: the flat generated
-  backdrop trapped between hair strands (not reachable from the border) is
-  keyed globally by tight color match + near-background chroma, so neutral
-  hair-gap backdrop is removed while tinted features (eyes, pearls) are kept.
+- neutral-backdrop suppression by region growing (`--no-bg-suppress` to disable):
+  on the model path, removes flat backdrop the matte leaves trapped in concave
+  hair/ear gaps. A fixed color key fails because an AI backdrop is shaded darker
+  inside the gaps, so the trapped gray spans a wide luminance range. Instead the
+  backdrop is modeled as neutral (low chroma) + smooth (low local texture) +
+  within an adaptive luminance window around the border background, and region-
+  grown from the frame edge — color-value agnostic, so it follows shaded gaps and
+  stops at bright/tinted hair. A conservative enclosed-pocket pass clears fully
+  walled gaps only when smooth, neutral, and at the background luminance, so
+  darker smooth features (sunglasses, pupils, outlines) and tinted features
+  (lavender eyes, pink hair shading, pearls) are preserved. No-op unless a
+  dominant neutral border background is detected; auto-aborts if it would erase
+  the whole subject.
 - optional `--edge-contract N` matte contraction: erodes the silhouette inward by
   N px and re-softens it, removing the thin opaque pale halo left when pale hair
   fades into a low-contrast backdrop. Works on the model path and on already-cut
