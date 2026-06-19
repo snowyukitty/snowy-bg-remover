@@ -189,6 +189,13 @@ contamination than saturated chroma-key colors.
 - largest high-confidence core selection with multi-core confidence rejection
 - edge RGB decontamination via PyMatting foreground estimation, with nearest
   opaque foreground color bleed fallback
+- uniform-background color suppression (`--no-bg-suppress` to disable): on the
+  model path, removes flat backdrop pixels the matte leaves trapped in concave
+  hair/ear gaps. Safe by construction — only reduces alpha for pixels that are
+  both background-colored and reachable from the image border through other
+  background-colored pixels, so interior neutral features (eyes, pearls, silver)
+  are never touched. No-op unless a single dominant uniform border background is
+  detected; auto-aborts if it would erase the whole subject.
 - bounded closed-form alpha refinement for `--quality`, driven by a generated
   trimap around the model boundary and protected foreground core
 - `--bbox-threshold` to keep faint outer haze from expanding trim/framing boxes

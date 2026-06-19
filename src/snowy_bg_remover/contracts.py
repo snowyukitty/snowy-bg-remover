@@ -55,6 +55,7 @@ class CutoutOptions:
     explain_dir: Path | None = None
     decontaminate_edges: bool = True
     decontaminate_radius: int = 24
+    background_suppression: bool = True
     trim: bool = False
     pad: str | None = None
     square: bool = False

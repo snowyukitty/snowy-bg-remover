@@ -6,16 +6,19 @@ from typing import Any
 
 from PIL import Image
 
+import numpy as np
+
 from .adapters.base import ModelAdapter
 from .adapters.registry import create_adapter
 from .alpha import apply_alpha, resize_rgba_linear_premultiplied
 from .atomic_write import atomic_save_png
+from .background import estimate_background, suppress_background_color
 from .contracts import CutoutOptions, CutoutResult
 from .decontaminate import estimate_foreground_rgb
 from .explain import save_explain_artifacts
 from .framing import frame_image
 from .image_io import load_image
-from .masks import TopologyResult, analyze_soft_alpha, bbox_from_mask
+from .masks import TopologyResult, analyze_soft_alpha, bbox_from_mask, normalize_alpha
 from .refine import refine_alpha_closed_form
 
 
@@ -174,6 +177,21 @@ def process_image(
                 model=options.model,
             )
 
+    # Suppress a flat uniform background the model left in concave hair/ear gaps.
+    # Only on the model path (input alpha is trusted as-is) and only when a single
+    # dominant uniform border background is detected; otherwise a no-op.
+    used_model = loaded.alpha is None or options.force_model
+    if options.background_suppression and used_model:
+        rgb_arr = np.asarray(loaded.image.convert("RGB"))
+        alpha01 = normalize_alpha(source_alpha)
+        if rgb_arr.shape[:2] != alpha01.shape:
+            rgb_arr = np.asarray(
+                loaded.image.convert("RGB").resize((alpha01.shape[1], alpha01.shape[0]))
+            )
+        background = estimate_background(rgb_arr)
+        source_alpha, bg_metrics = suppress_background_color(alpha01, rgb_arr, background)
+        raw_metrics.update(bg_metrics)
+
     try:
         topology = analyze_soft_alpha(
             source_alpha,
@@ -198,6 +216,8 @@ def process_image(
     metrics = _metrics(topology)
     metrics.update(raw_metrics)
     flags = _artifact_flags(topology, loaded.alpha is not None)
+    if raw_metrics.get("backgroundSuppressed"):
+        flags.append("suppressed_background")
 
     if options.alpha_refine and topology.bbox is not None:
         refined = refine_alpha_closed_form(

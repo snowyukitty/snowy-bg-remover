@@ -82,6 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--explain-dir")
     parser.add_argument("--no-decontaminate", action="store_true")
     parser.add_argument("--decontaminate-radius", type=positive_int, default=24)
+    parser.add_argument("--no-bg-suppress", action="store_true")
     parser.add_argument("--trim", action="store_true")
     parser.add_argument("--pad")
     parser.add_argument("--square", action="store_true")
@@ -276,6 +277,7 @@ def make_options(
         explain_dir=Path(args.explain_dir) if args.explain_dir else None,
         decontaminate_edges=not args.no_decontaminate,
         decontaminate_radius=args.decontaminate_radius,
+        background_suppression=not args.no_bg_suppress,
         trim=args.trim,
         pad=args.pad,
         square=args.square,
