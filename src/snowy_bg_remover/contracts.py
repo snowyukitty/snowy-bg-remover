@@ -57,6 +57,7 @@ class CutoutOptions:
     decontaminate_radius: int = 24
     background_suppression: bool = True
     edge_contract: int = 0
+    flatten_bg: int | None = None
     trim: bool = False
     pad: str | None = None
     square: bool = False

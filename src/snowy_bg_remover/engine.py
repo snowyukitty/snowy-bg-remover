@@ -17,7 +17,7 @@ from .contracts import CutoutOptions, CutoutResult
 from .decontaminate import estimate_foreground_rgb
 from .explain import save_explain_artifacts
 from .framing import frame_image
-from .image_io import load_image
+from .image_io import LoadedImage, load_image
 from .masks import (
     TopologyResult,
     analyze_soft_alpha,
@@ -132,6 +132,17 @@ def process_image(
             reason="decode_failure",
             message=f"failed to decode image: {exc}",
         )
+
+    # Re-cut support: flatten an already-cut RGBA back onto a flat gray backdrop and
+    # drop its alpha, so the model path (with background suppression) runs again
+    # instead of trusting the old, possibly-flawed alpha. A no-op for opaque input.
+    if options.flatten_bg is not None and loaded.alpha is not None:
+        level = int(np.clip(options.flatten_bg, 0, 255))
+        flat = Image.alpha_composite(
+            Image.new("RGBA", loaded.image.size, (level, level, level, 255)),
+            loaded.image.convert("RGBA"),
+        ).convert("RGB")
+        loaded = LoadedImage(image=flat, had_alpha=loaded.had_alpha, alpha=None)
 
     width, height = loaded.image.size
     model_name = "input-alpha"
